@@ -66,7 +66,7 @@ class FactoryThread: Thread {
 
 class SoderingThread: Thread {
     override func main() {
-        for _ in 0...10 {
+        for _ in 0...9 {
             while storageOfChips.isEmpty() {
                 
             }
