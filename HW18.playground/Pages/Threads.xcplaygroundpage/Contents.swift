@@ -1,29 +1,24 @@
 import UIKit
 
 public struct Chip {
-    private static var chipsCounter = 0
-    
     public enum ChipType: UInt32 {
         case small = 1
         case medium
         case big
     }
     
-    public let chipID: Int
     public let chipType: ChipType
     
     public static func make() -> Chip {
         guard let chipType = Chip.ChipType(rawValue: UInt32(arc4random_uniform(3) + 1)) else {
             fatalError("Incorrect random value")
         }
-        Self.chipsCounter += 1
-        return Chip(chipID: Self.chipsCounter, chipType: chipType)
+        return Chip(chipType: chipType)
     }
     
     public func sodering() {
         let soderingTime = chipType.rawValue
         sleep(UInt32(soderingTime))
-        print("\n\(Date()) Чип \(chipID) припаян\n")
     }
 }
 
@@ -36,20 +31,20 @@ class MyLIFOStorage {
     func append(new chip: Chip) {
         storageSemaphore.wait()
         chipStorage.append(chip)
-        print("\(Date()) Чип \(chip.chipID) (задержка \(chip.chipType.rawValue)) создан. Хранилище чипов: [\(getAllChips())]")
+        print("\(Date()) Чип \(chip.chipType.rawValue) создан. Хранилище чипов: [\(getAllChips())]")
         storageSemaphore.signal()
     }
     
     func remove() -> Chip {
         storageSemaphore.wait()
         let chip = chipStorage.removeFirst()
-        print("\(Date()) Чип \(chip.chipID) отдан на припайку. Хранилище чипов: [\(getAllChips())]")
+        print("\(Date()) Чип \(chip.chipType.rawValue) отдан на припайку. Хранилище чипов: [\(getAllChips())]")
         storageSemaphore.signal()
         return chip
     }
     
     func getAllChips() -> String {
-        chipStorage.map { "ID: " + String($0.chipID) }.joined(separator: ", ")
+        chipStorage.map { String($0.chipType.rawValue) }.joined(separator: ", ")
     }
 }
 
@@ -87,11 +82,12 @@ class SoderingThread: Thread {
     private weak var storage: MyLIFOStorage?
     private weak var semaphore: DispatchSemaphore?
     
-    private let chipsCount: Int
+    private var chipsCounter = 0
+    private let requiredNumberOfChips: Int
     
     init(storage: MyLIFOStorage, workingTime: Double, semaphore: DispatchSemaphore) {
         self.storage = storage
-        self.chipsCount = Int(workingTime / 2)
+        self.requiredNumberOfChips = Int(workingTime / 2)
         self.semaphore = semaphore
     }
     
@@ -99,13 +95,19 @@ class SoderingThread: Thread {
         while true {
             guard let storage = storage, let semaphore = semaphore else { return }
             semaphore.wait()
-            let chip = storage.remove()
-            chip.sodering()
-            if chip.chipID == chipsCount {
+            chipSodering(storage: storage)
+            if chipsCounter == requiredNumberOfChips {
                 print("SoderingThread завершён")
                 cancel()
             }
         }
+    }
+    
+    private func chipSodering(storage: MyLIFOStorage) {
+        let chip = storage.remove()
+        chip.sodering()
+        chipsCounter += 1
+        print("\n\(Date()) Чип \(chip.chipType.rawValue) припаян\n")
     }
 }
 
